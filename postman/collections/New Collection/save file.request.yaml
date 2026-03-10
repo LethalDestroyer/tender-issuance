@@ -1,0 +1,14 @@
+$kind: http-request
+name: save file
+url: http://127.0.0.1:8000/upload
+method: POST
+body:
+  type: formdata
+  content:
+    - type: file
+      key: File
+      src:
+        - /C:/Users/rusha/Downloads/people-1000.csv
+      description: ""
+      disabled: false
+order: 2077892884099921

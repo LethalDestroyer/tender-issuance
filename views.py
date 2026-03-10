@@ -1,37 +1,20 @@
-from flask import Flask, request, jsonify
 import psycopg2
 import pandas as pd
 import os
 import re
-from werkzeug.utils import secure_filename
-
-app = Flask(__name__)
-
-DB_CONFIG = {
-    "dbname": "postgres",
-    "user": "postgres",
-    "password": "root",
-    "host": "localhost",
-    "port": "5432"
-}
-
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+from config import DB_CONFIG
 
 
-# DB CONNECTION
 def get_conn():
     return psycopg2.connect(**DB_CONFIG)
 
 
-# SANITIZE NAME
 def sanitize(name):
     name = str(name).strip()
     name = re.sub(r"\W+", "_", name)
     return name.lower()
 
 
-# REMOVE NULL BYTES
 def clean_null_bytes(path):
 
     cleaned = path + "_clean"
@@ -47,7 +30,6 @@ def clean_null_bytes(path):
     return cleaned
 
 
-# CREATE TABLE
 def create_table(cursor, table, columns):
 
     cols = ", ".join([f'"{c}" TEXT' for c in columns])
@@ -61,7 +43,6 @@ def create_table(cursor, table, columns):
     cursor.execute(query)
 
 
-# INSERT DATAFRAME
 def insert_dataframe(df, table):
 
     conn = get_conn()
@@ -88,7 +69,6 @@ def insert_dataframe(df, table):
     conn.close()
 
 
-# PROCESS FILE
 def process_file(file_path, table):
 
     ext = file_path.split(".")[-1].lower()
@@ -107,12 +87,11 @@ def process_file(file_path, table):
                 on_bad_lines="skip"
             )
 
-        elif ext in ["xlsx", "xls", 'csv']:
+        elif ext in ["xlsx", "xls"]:
 
             df = pd.read_excel(cleaned_path)
 
         else:
-
             return "Unsupported file type"
 
         insert_dataframe(df, table)
@@ -122,55 +101,3 @@ def process_file(file_path, table):
     except Exception as e:
 
         return f"Upload failed: {str(e)}"
-
-
-# API ROUTE
-@app.route("/upload", methods=["POST"])
-def upload():
-
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    file = request.files["file"]
-
-    filename = secure_filename(file.filename)
-
-    path = os.path.join(UPLOAD_FOLDER, filename)
-
-    file.save(path)
-
-    table = sanitize(os.path.splitext(filename)[0])
-
-    result = process_file(path, table)
-
-    os.remove(path)
-
-    return jsonify({"message": result})
-
-
-# HEALTH CHECK
-@app.route("/")
-def home():
-
-    try:
-
-        conn = get_conn()
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT version();")
-        version = cursor.fetchone()[0]
-
-        cursor.close()
-        conn.close()
-
-        return f"PostgreSQL Connected: {version}"
-
-    except Exception as e:
-
-        return str(e)
-
-
-# RUN SERVER
-if __name__ == "__main__":
-
-    app.run(host="0.0.0.0", port=8000, debug=True)
