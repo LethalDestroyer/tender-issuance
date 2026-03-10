@@ -1,0 +1,5 @@
+$kind: http-request
+name: test db
+url: http://127.0.0.1:8000/upload
+method: GET
+order: 1773126347568
